@@ -85,3 +85,90 @@ contract ExplosDosVoltLedger is VoltReentryShell {
     error VDL_ScoreOutOfBand(uint256 score, uint256 maxScore);
     error VDL_DrillInactive(uint256 drillId);
     error VDL_DrillExhausted(uint256 drillId);
+    error VDL_DrillUnknown(uint256 drillId);
+    error VDL_InvalidHint(uint256 hint);
+    error VDL_AuditWindowClosed(uint256 cohortId);
+    error VDL_BufferOverflow(uint256 requested, uint256 capacity);
+    error VDL_VersionMismatch(uint256 expected, uint256 actual);
+
+    event VDLGovernorRotated(address indexed previous, address indexed next);
+    event VDLCohortOpened(uint256 indexed cohortId, bytes32 tag, uint256 maxMembers);
+    event VDLCohortSealed(uint256 indexed cohortId, uint256 when);
+    event VDLLessonPublished(uint256 indexed lessonId, bytes32 titleHash, uint256 gasBudgetHint);
+    event VDLLessonSealed(uint256 indexed lessonId);
+    event VDLDrillSpawned(uint256 indexed drillId, uint256 indexed lessonId, uint256 attemptsBudget);
+    event VDLDrillOutcome(uint256 indexed drillId, address indexed learner, uint256 score, uint256 gasUsedProxy);
+    event VDLPingEmitted(address indexed sink, uint256 indexed lessonId, bytes32 cohortTag, bool ok);
+    event VDLScoreCommitted(uint256 indexed cohortId, address indexed learner, uint256 total);
+    event VDLAuditNote(uint256 indexed cohortId, address indexed auditor, bytes32 digest);
+    event VDLGasObservation(uint256 indexed lessonId, uint256 cohortId, uint256 observed, uint256 clamped);
+    event VDLTracePulse(uint256 indexed pulseId, uint256 version, bytes32 entropy);
+    event VDLJitterApplied(uint256 indexed cohortId, uint256 jitteredNonce);
+    event VDLCapReminder(uint256 scope, uint256 ceiling);
+    event VDLHeartbeat(uint256 indexed stamp, address indexed governor);
+    event VDLBoundaryCheck(uint256 indexed id, bool passed);
+    event VDLMathGuard(uint256 op, uint256 lhs, uint256 rhs, uint256 result);
+
+    struct Cohort {
+        bytes32 tag;
+        uint64 openedAt;
+        uint64 sealedAt;
+        uint32 maxMembers;
+        uint32 memberCount;
+        uint64 lastPacing;
+        bool sealed;
+    }
+
+    struct Lesson {
+        bytes32 titleHash;
+        uint64 publishedAt;
+        uint32 gasBudgetHint;
+        bool sealed;
+    }
+
+    struct Drill {
+        uint64 lessonId;
+        uint32 attemptsRemaining;
+        uint32 maxAttempts;
+        bool active;
+    }
+
+    struct Enrollment {
+        bool active;
+        uint64 joinedAt;
+        uint32 score;
+    }
+
+    uint256 public cohortCount;
+    uint256 public lessonCount;
+    uint256 public drillCount;
+    uint256 public pulseCount;
+
+    mapping(uint256 => Cohort) private _cohorts;
+    mapping(uint256 => Lesson) private _lessons;
+    mapping(uint256 => Drill) private _drills;
+    mapping(uint256 => mapping(address => Enrollment)) private _enrollment;
+    mapping(address => bool) public isOperator;
+    mapping(address => bool) public isAuditor;
+    mapping(bytes32 => bool) private _usedTags;
+
+    address public governor;
+    IVoltTraceSink public traceSink;
+
+    modifier onlyGovernor() {
+        if (msg.sender != governor) revert VDL_NotGovernor(msg.sender);
+        _;
+    }
+
+    modifier onlyOperator() {
+        if (!isOperator[msg.sender]) revert VDL_NotOperator(msg.sender);
+        _;
+    }
+
+    modifier onlyAuditor() {
+        if (!isAuditor[msg.sender]) revert VDL_NotAuditor(msg.sender);
+        _;
+    }
+
+    constructor(
+        address addressA,
