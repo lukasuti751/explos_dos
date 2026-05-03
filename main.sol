@@ -259,3 +259,90 @@ contract ExplosDosVoltLedger is VoltReentryShell {
             titleHash: titleHash,
             publishedAt: uint64(block.timestamp),
             gasBudgetHint: gasBudgetHint,
+            sealed: false
+        });
+        emit VDLLessonPublished(lessonId, titleHash, gasBudgetHint);
+    }
+
+    function sealLesson(uint256 lessonId) external onlyOperator {
+        Lesson storage l = _requireLesson(lessonId);
+        if (l.sealed) revert VDL_LessonLocked(lessonId);
+        l.sealed = true;
+        emit VDLLessonSealed(lessonId);
+    }
+
+    function spawnDrill(uint256 lessonId, uint32 maxAttempts) external onlyOperator returns (uint256 drillId) {
+        _requireLesson(lessonId);
+        if (maxAttempts == 0 || maxAttempts > BATCH_CEILING) {
+            revert VDL_ArgumentRange("maxAttempts", maxAttempts, 1, BATCH_CEILING);
+        }
+        drillId = drillCount++;
+        _drills[drillId] = Drill({
+            lessonId: uint64(lessonId),
+            attemptsRemaining: maxAttempts,
+            maxAttempts: maxAttempts,
+            active: true
+        });
+        emit VDLDrillSpawned(drillId, lessonId, maxAttempts);
+    }
+
+    function enrollLearner(uint256 cohortId, address learner) external onlyOperator {
+        if (learner == address(0)) revert VDL_ZeroAddress("LEARNER");
+        Cohort storage c = _requireCohort(cohortId);
+        if (c.sealed) revert VDL_AuditWindowClosed(cohortId);
+        if (c.memberCount >= c.maxMembers) revert VDL_CohortFull(cohortId);
+        Enrollment storage e = _enrollment[cohortId][learner];
+        if (e.active) revert VDL_AlreadyEnrolled(cohortId, learner);
+        e.active = true;
+        e.joinedAt = uint64(block.timestamp);
+        e.score = 0;
+        unchecked {
+            c.memberCount += 1;
+        }
+    }
+
+    function withdrawLearner(uint256 cohortId, address learner) external onlyOperator {
+        Cohort storage c = _requireCohort(cohortId);
+        Enrollment storage e = _enrollment[cohortId][learner];
+        if (!e.active) revert VDL_NotEnrolled(cohortId, learner);
+        e.active = false;
+        unchecked {
+            if (c.memberCount > 0) c.memberCount -= 1;
+        }
+    }
+
+    function commitScore(uint256 cohortId, address learner, uint32 score) external onlyOperator {
+        if (score > LESSON_CAP) revert VDL_ScoreOutOfBand(score, LESSON_CAP);
+        _requireCohort(cohortId);
+        Enrollment storage e = _enrollment[cohortId][learner];
+        if (!e.active) revert VDL_NotEnrolled(cohortId, learner);
+        e.score = score;
+        emit VDLScoreCommitted(cohortId, learner, score);
+    }
+
+    function emitAuditNote(uint256 cohortId, bytes32 digest) external onlyAuditor {
+        _requireCohort(cohortId);
+        emit VDLAuditNote(cohortId, msg.sender, digest);
+    }
+
+    function learnerPulse(uint256 cohortId) external {
+        Enrollment storage e = _enrollment[cohortId][msg.sender];
+        if (!e.active) revert VDL_NotEnrolled(cohortId, msg.sender);
+        Cohort storage c = _requireCohort(cohortId);
+        uint256 nextAllowed = uint256(c.lastPacing);
+        unchecked {
+            nextAllowed += 1;
+        }
+        if (block.timestamp < nextAllowed) revert VDL_PacingViolation(cohortId, nextAllowed);
+        c.lastPacing = uint64(block.timestamp);
+        uint256 jitter = uint256(keccak256(abi.encodePacked(msg.sender, cohortId, block.prevrandao))) & JITTER_MASK;
+        emit VDLJitterApplied(cohortId, jitter);
+    }
+
+    function pingTrace(uint256 lessonId, bytes32 cohortTag) external onlyOperator {
+        IVoltTraceSink sink = traceSink;
+        if (address(sink) == address(0)) revert VDL_SinkMissing();
+        bool ok;
+        try sink.ping(lessonId, cohortTag) returns (bool v) {
+            ok = v;
+        } catch {
