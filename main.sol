@@ -1303,3 +1303,90 @@ contract ExplosDosVoltLedger is VoltReentryShell {
         return a.saturatingAdd(b >> 5);
     }
 
+    function facetProbePsi95(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf010d27c0d47) & 0x1cefacadec01878f;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendPsi95(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 1);
+    }
+
+    function facetProbeOmega96(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf010ac14c41e) & 0x1cefacadec018b60;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendOmega96(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 2);
+    }
+
+    function facetProbeApex97(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf0107facfff9) & 0x1cefacadec018f31;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendApex97(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 3);
+    }
+
+    function facetProbeBrine98(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf013c944b150) & 0x1cefacadec019302;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendBrine98(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 4);
+    }
+
+    function facetProbeCinder99(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf01398df682b) & 0x1cefacadec0196d3;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendCinder99(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 5);
+    }
+
+    function facetProbeDeltaV100(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf0136a772382) & 0x1cefacadec019aa4;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendDeltaV100(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 1);
+    }
+
+    function facetProbeEchoV101(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf013240fe55d) & 0x1cefacadec019e75;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendEchoV101(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 2);
+    }
+
+    function facetProbeFable102(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf012f7a79c34) & 0x1cefacadec01a246;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendFable102(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 3);
+    }
+
+    function facetProbeGlide103(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf012413e578f) & 0x1cefacadec01a617;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendGlide103(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 4);
+    }
+
+    function facetProbeHearth104(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf01210d60966) & 0x1cefacadec01a9e8;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendHearth104(uint256 a, uint256 b) external pure returns (uint256) {
