@@ -172,3 +172,90 @@ contract ExplosDosVoltLedger is VoltReentryShell {
 
     constructor(
         address addressA,
+        address addressB,
+        address addressC,
+        address governor_,
+        address operatorSeed,
+        address auditorSeed
+    ) {
+        if (addressA == address(0)) revert VDL_ZeroAddress("ADDRESS_A");
+        if (addressB == address(0)) revert VDL_ZeroAddress("ADDRESS_B");
+        if (addressC == address(0)) revert VDL_ZeroAddress("ADDRESS_C");
+        if (governor_ == address(0)) revert VDL_ZeroAddress("GOVERNOR");
+        if (operatorSeed == address(0)) revert VDL_ZeroAddress("OPERATOR");
+        if (auditorSeed == address(0)) revert VDL_ZeroAddress("AUDITOR");
+        ADDRESS_A = addressA;
+        ADDRESS_B = addressB;
+        ADDRESS_C = addressC;
+        ADDRESS_GOVERNOR = governor_;
+        governor = governor_;
+        isOperator[operatorSeed] = true;
+        isAuditor[auditorSeed] = true;
+        emit VDLGovernorRotated(address(0), governor_);
+    }
+
+    receive() external payable {
+        revert VDL_SinkMissing();
+    }
+
+    fallback() external payable {
+        revert VDL_SinkMissing();
+    }
+
+    function rotateGovernor(address next) external onlyGovernor voltNonReentrant {
+        if (next == address(0)) revert VDL_ZeroAddress("GOVERNOR");
+        address prev = governor;
+        governor = next;
+        emit VDLGovernorRotated(prev, next);
+    }
+
+    function setOperator(address who, bool flag) external onlyGovernor {
+        if (who == address(0)) revert VDL_ZeroAddress("OPERATOR");
+        isOperator[who] = flag;
+    }
+
+    function setAuditor(address who, bool flag) external onlyGovernor {
+        if (who == address(0)) revert VDL_ZeroAddress("AUDITOR");
+        isAuditor[who] = flag;
+    }
+
+    function setTraceSink(IVoltTraceSink sink) external onlyGovernor {
+        traceSink = sink;
+    }
+
+    function openCohort(bytes32 tag, uint32 maxMembers) external onlyOperator returns (uint256 cohortId) {
+        if (maxMembers == 0 || maxMembers > COHORT_CAP) {
+            revert VDL_ArgumentRange("maxMembers", maxMembers, 1, COHORT_CAP);
+        }
+        if (_usedTags[tag]) revert VDL_HashCollision(tag);
+        _usedTags[tag] = true;
+        cohortId = cohortCount++;
+        _cohorts[cohortId] = Cohort({
+            tag: tag,
+            openedAt: uint64(block.timestamp),
+            sealedAt: 0,
+            maxMembers: maxMembers,
+            memberCount: 0,
+            lastPacing: 0,
+            sealed: false
+        });
+        emit VDLCohortOpened(cohortId, tag, maxMembers);
+    }
+
+    function sealCohort(uint256 cohortId) external onlyOperator {
+        Cohort storage c = _requireCohort(cohortId);
+        if (c.sealed) return;
+        c.sealed = true;
+        c.sealedAt = uint64(block.timestamp);
+        emit VDLCohortSealed(cohortId, block.timestamp);
+    }
+
+    function publishLesson(bytes32 titleHash, uint32 gasBudgetHint) external onlyOperator returns (uint256 lessonId) {
+        if (gasBudgetHint < uint32(GAS_HINT_FLOOR) || gasBudgetHint > uint32(GAS_HINT_CEILING)) {
+            revert VDL_InvalidHint(gasBudgetHint);
+        }
+        lessonId = lessonCount++;
+        _lessons[lessonId] = Lesson({
+            titleHash: titleHash,
+            publishedAt: uint64(block.timestamp),
+            gasBudgetHint: gasBudgetHint,
