@@ -346,3 +346,90 @@ contract ExplosDosVoltLedger is VoltReentryShell {
         try sink.ping(lessonId, cohortTag) returns (bool v) {
             ok = v;
         } catch {
+            revert VDL_SinkReverted(address(sink));
+        }
+        emit VDLPingEmitted(address(sink), lessonId, cohortTag, ok);
+    }
+
+    function recordGasObservation(uint256 lessonId, uint256 cohortId, uint256 observed) external onlyAuditor {
+        Lesson storage l = _requireLesson(lessonId);
+        _requireCohort(cohortId);
+        uint256 clamped = observed.clamp(GAS_HINT_FLOOR, GAS_HINT_CEILING);
+        emit VDLGasObservation(lessonId, cohortId, observed, clamped);
+        emit VDLMathGuard(1, observed, uint256(l.gasBudgetHint), clamped);
+    }
+
+    function emitCapReminder(uint256 scope, uint256 ceiling) external onlyGovernor {
+        emit VDLCapReminder(scope, ceiling);
+    }
+
+    function heartbeat() external onlyGovernor {
+        unchecked {
+            pulseCount += 1;
+        }
+        bytes32 entropy = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender, pulseCount));
+        emit VDLTracePulse(pulseCount, TRACE_VERSION, entropy);
+        emit VDLHeartbeat(block.timestamp, governor);
+    }
+
+    function probeBoundedSum(uint256[] calldata values) external pure returns (uint256 sum, bool saturated) {
+        if (values.length > BATCH_CEILING) revert VDL_BatchTooLarge(values.length, BATCH_CEILING);
+        uint256 acc;
+        for (uint256 i; i < values.length; ) {
+            uint256 before = acc;
+            acc = acc.saturatingAdd(values[i]);
+            if (acc < before || acc == type(uint256).max) {
+                return (acc, true);
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        return (acc, false);
+    }
+
+    function probeBoundedProduct(uint256 a, uint256 b, uint256 cap) external pure returns (uint256) {
+        return a.boundedMul(b, cap);
+    }
+
+    function checksumLesson(uint256 lessonId, bytes32 salt) external view returns (bytes32) {
+        Lesson storage l = _requireLesson(lessonId);
+        return keccak256(abi.encode(l.titleHash, l.publishedAt, l.gasBudgetHint, salt, TRACE_VERSION));
+    }
+
+    function cohortDigest(uint256 cohortId) external view returns (bytes32) {
+        Cohort storage c = _requireCohort(cohortId);
+        return keccak256(abi.encode(c.tag, c.openedAt, c.sealedAt, c.maxMembers, c.memberCount));
+    }
+
+    function drillSnapshot(uint256 drillId) external view returns (Drill memory) {
+        Drill storage d = _requireDrill(drillId);
+        return d;
+    }
+
+    function enrollmentView(uint256 cohortId, address learner) external view returns (Enrollment memory) {
+        _requireCohort(cohortId);
+        return _enrollment[cohortId][learner];
+    }
+
+    function staticAddresses()
+        external
+        view
+        returns (address a, address b, address c, address g)
+    {
+        return (ADDRESS_A, ADDRESS_B, ADDRESS_C, ADDRESS_GOVERNOR);
+    }
+
+
+    function consumeDrillAttempt(uint256 drillId, address learner, uint32 score)
+        external
+        onlyOperator
+        voltNonReentrant
+        returns (uint32 remaining)
+    {
+        Drill storage d = _requireDrill(drillId);
+        if (!d.active) revert VDL_DrillInactive(drillId);
+        if (d.attemptsRemaining == 0) revert VDL_DrillExhausted(drillId);
+        if (score > LESSON_CAP) revert VDL_ScoreOutOfBand(score, LESSON_CAP);
+        unchecked {
+            d.attemptsRemaining -= 1;
