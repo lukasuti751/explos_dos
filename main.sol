@@ -1477,3 +1477,73 @@ contract ExplosDosVoltLedger is VoltReentryShell {
     function facetProbeRivet114(uint256 x) external pure returns (uint256) {
         uint256 y = (x ^ 0x5eedf02f20c8cce0) & 0x1cefacadec01d012;
         return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendRivet114(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 5);
+    }
+
+    function facetProbeSable115(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf02ef26087bb) & 0x1cefacadec01d3e3;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendSable115(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 1);
+    }
+
+    function facetProbeTalon116(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf02e4df8b912) & 0x1cefacadec01d7b4;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendTalon116(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 2);
+    }
+
+    function facetProbeUmber117(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf02e1f9370ed) & 0x1cefacadec01db85;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendUmber117(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 3);
+    }
+
+    function facetProbeVortex118(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf029e92b2a44) & 0x1cefacadec01df56;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendVortex118(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 4);
+    }
+
+    function facetProbeWisp119(uint256 x) external pure returns (uint256) {
+        uint256 y = (x ^ 0x5eedf029b8c3ed1f) & 0x1cefacadec01e327;
+        return y.clamp(1, LESSON_CAP);
+    }
+
+    function facetBlendWisp119(uint256 a, uint256 b) external pure returns (uint256) {
+        return a.saturatingAdd(b >> 5);
+    }
+
+    function assertVersion(uint256 expected) external pure {
+        if (expected != TRACE_VERSION) revert VDL_VersionMismatch(expected, TRACE_VERSION);
+    }
+
+    function _requireCohort(uint256 cohortId) private view returns (Cohort storage c) {
+        if (cohortId >= cohortCount) revert VDL_CohortUnknown(cohortId);
+        c = _cohorts[cohortId];
+    }
+
+    function _requireLesson(uint256 lessonId) private view returns (Lesson storage l) {
+        if (lessonId >= lessonCount) revert VDL_LessonUnknown(lessonId);
+        l = _lessons[lessonId];
+    }
+
+    function _requireDrill(uint256 drillId) private view returns (Drill storage d) {
+        if (drillId >= drillCount) revert VDL_DrillUnknown(drillId);
+        d = _drills[drillId];
+    }
+}
